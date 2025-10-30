@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: housing-crisis-inference
+  namespace: ml-inference
+  labels:
+    app: housing-crisis
+    component: inference
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: housing-crisis
+      component: inference
+  template:
+    metadata:
+      labels:
+        app: housing-crisis
+        component: inference
+    spec:
+      nodeSelector:
+        node.kubernetes.io/instance-type: g5.xlarge
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+
+      containers:
+      - name: inference
+        image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/housing-crisis-ml:${IMAGE_TAG}
+        imagePullPolicy: Always
+
+        command: ["conda", "run", "--no-capture-output", "-n", "housing_ml_env", "/entrypoint.sh"]
+        args: ["serve"]
+
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+
+        env:
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: AWS_DEFAULT_REGION
+          value: ${AWS_REGION}
+
+        resources:
+          requests:
+            cpu: "4"
+            memory: "16Gi"
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "8"
+            memory: "32Gi"
+            nvidia.com/gpu: "1"
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        volumeMounts:
+        - name: model-storage
+          mountPath: /app/models/saved
+        - name: shm
+          mountPath: /dev/shm
+
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: housing-crisis-models
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 8Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: housing-crisis-inference
+  namespace: ml-inference
+  labels:
+    app: housing-crisis
+    component: inference
+spec:
+  type: ClusterIP
+  selector:
+    app: housing-crisis
+    component: inference
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+    protocol: TCP

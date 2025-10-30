@@ -1,0 +1,57 @@
+data:
+  rawDataPath: "data/raw"
+  processedDataPath: "data/processed"
+  zillowCachePath: "data/cache/zillow"
+  fredCachePath: "data/cache/fred"
+
+models:
+  timesfm:
+    modelName: "google/timesfm-2.5-200m-pytorch"
+    maxContext: 1024
+    maxHorizon: 256
+    normalizeInputs: true
+
+  chronos:
+    modelName: "amazon/chronos-bolt-small"
+    deviceMap: "cuda"
+    torchDtype: "bfloat16"
+    predictionLength: 12
+    numSamples: 20
+
+  stgnn:
+    hiddenChannels: 128
+    numLayers: 3
+    dropout: 0.3
+    spatialAggregation: "graphsage"
+    temporalAggregation: "gru"
+
+  xgboost:
+    nEstimators: 1000
+    learningRate: 0.05
+    maxDepth: 7
+    subsample: 0.8
+    colsampleBytree: 0.8
+
+  catboost:
+    iterations: 1000
+    learningRate: 0.05
+    depth: 7
+    l2LeafReg: 3
+
+ensemble:
+  metaLearnerType: "autogluon"
+  timeLimit: 600
+  preset: "best_quality"
+  evalMetric: "RMSE"
+
+training:
+  batchSize: 32
+  epochs: 50
+  validationSplit: 0.2
+  testSplit: 0.1
+  forecastHorizon: 12
+
+prediction:
+  crisisThresholdHigh: 0.7
+  crisisThresholdMedium: 0.4
+  confidenceLevel: 0.95

@@ -1,0 +1,17 @@
+ARG BASE_IMAGE=housing-crisis-ml:latest
+FROM $BASE_IMAGE
+
+SHELL ["conda", "run", "-n", "housing_ml_env", "/bin/bash", "-c"]
+
+RUN pip install --no-cache-dir \
+    jupyterlab==4.0.7 \
+    jupyter-server==2.9.1 \
+    notebook==7.0.6
+
+WORKDIR /workspace
+
+COPY notebooks /workspace/notebooks
+
+EXPOSE 8888
+
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''", "--NotebookApp.password=''"]

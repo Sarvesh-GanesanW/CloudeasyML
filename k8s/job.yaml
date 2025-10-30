@@ -1,0 +1,145 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: housing-crisis-training-${JOB_ID}
+  namespace: ml-jobs
+  labels:
+    app: housing-crisis
+    component: training
+    job-id: ${JOB_ID}
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 2
+
+  template:
+    metadata:
+      labels:
+        app: housing-crisis
+        component: training
+        job-id: ${JOB_ID}
+    spec:
+      restartPolicy: OnFailure
+
+      nodeSelector:
+        node.kubernetes.io/instance-type: g5.2xlarge
+
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+
+      containers:
+      - name: training
+        image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/housing-crisis-ml:${IMAGE_TAG}
+        imagePullPolicy: Always
+
+        command: ["conda", "run", "--no-capture-output", "-n", "housing_ml_env", "/entrypoint.sh"]
+        args:
+        - "train"
+        - "--fred-api-key"
+        - "${FRED_API_KEY}"
+        - "--target"
+        - "CSUSHPISA"
+        - "--use-autogluon"
+
+        env:
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: AWS_DEFAULT_REGION
+          value: ${AWS_REGION}
+
+        resources:
+          requests:
+            cpu: "8"
+            memory: "32Gi"
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "16"
+            memory: "64Gi"
+            nvidia.com/gpu: "1"
+
+        volumeMounts:
+        - name: model-storage
+          mountPath: /app/models/saved
+        - name: data-storage
+          mountPath: /app/data
+        - name: shm
+          mountPath: /dev/shm
+
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: housing-crisis-models
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: housing-crisis-data
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 16Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: housing-crisis-training-scheduled
+  namespace: ml-jobs
+  labels:
+    app: housing-crisis
+    component: training-scheduled
+spec:
+  schedule: "0 2 * * 0"
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 259200
+      backoffLimit: 1
+
+      template:
+        spec:
+          restartPolicy: OnFailure
+
+          nodeSelector:
+            node.kubernetes.io/instance-type: g5.2xlarge
+
+          tolerations:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+
+          containers:
+          - name: training
+            image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/housing-crisis-ml:${IMAGE_TAG}
+
+            command: ["conda", "run", "--no-capture-output", "-n", "housing_ml_env", "/entrypoint.sh"]
+            args: ["train"]
+
+            env:
+            - name: CUDA_VISIBLE_DEVICES
+              value: "0"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+
+            resources:
+              requests:
+                cpu: "8"
+                memory: "32Gi"
+                nvidia.com/gpu: "1"
+              limits:
+                cpu: "16"
+                memory: "64Gi"
+                nvidia.com/gpu: "1"
+
+            volumeMounts:
+            - name: model-storage
+              mountPath: /app/models/saved
+            - name: data-storage
+              mountPath: /app/data
+
+          volumes:
+          - name: model-storage
+            persistentVolumeClaim:
+              claimName: housing-crisis-models
+          - name: data-storage
+            persistentVolumeClaim:
+              claimName: housing-crisis-data

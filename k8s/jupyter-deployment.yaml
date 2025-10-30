@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: housing-crisis-jupyter
+  namespace: ml-dev
+  labels:
+    app: housing-crisis
+    component: jupyter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: housing-crisis
+      component: jupyter
+  template:
+    metadata:
+      labels:
+        app: housing-crisis
+        component: jupyter
+    spec:
+      nodeSelector:
+        node.kubernetes.io/instance-type: g5.xlarge
+
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+
+      containers:
+      - name: jupyter
+        image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/housing-crisis-jupyter:${IMAGE_TAG}
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 8888
+          name: jupyter
+          protocol: TCP
+
+        env:
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
+        - name: JUPYTER_ENABLE_LAB
+          value: "yes"
+
+        resources:
+          requests:
+            cpu: "4"
+            memory: "16Gi"
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "8"
+            memory: "32Gi"
+            nvidia.com/gpu: "1"
+
+        volumeMounts:
+        - name: workspace
+          mountPath: /workspace
+        - name: model-storage
+          mountPath: /app/models/saved
+        - name: data-storage
+          mountPath: /app/data
+
+      volumes:
+      - name: workspace
+        persistentVolumeClaim:
+          claimName: jupyter-workspace
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: housing-crisis-models
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: housing-crisis-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: housing-crisis-jupyter
+  namespace: ml-dev
+  labels:
+    app: housing-crisis
+    component: jupyter
+spec:
+  type: LoadBalancer
+  selector:
+    app: housing-crisis
+    component: jupyter
+  ports:
+  - name: jupyter
+    port: 8888
+    targetPort: 8888
+    protocol: TCP
