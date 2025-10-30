@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: housing-crisis-voila
+  namespace: ml-inference
+  labels:
+    app: housing-crisis
+    component: voila-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: housing-crisis
+      component: voila-ui
+  template:
+    metadata:
+      labels:
+        app: housing-crisis
+        component: voila-ui
+    spec:
+      containers:
+      - name: voila
+        image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/housing-crisis-voila:${IMAGE_TAG}
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 8866
+          name: http
+          protocol: TCP
+
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8866
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8866
+          initialDelaySeconds: 15
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: housing-crisis-voila
+  namespace: ml-inference
+  labels:
+    app: housing-crisis
+    component: voila-ui
+spec:
+  type: LoadBalancer
+  selector:
+    app: housing-crisis
+    component: voila-ui
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8866
+    protocol: TCP

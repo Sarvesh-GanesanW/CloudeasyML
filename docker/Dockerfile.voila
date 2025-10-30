@@ -1,0 +1,20 @@
+ARG BASE_IMAGE=housing-crisis-ml:latest
+FROM $BASE_IMAGE
+
+SHELL ["conda", "run", "-n", "housing_ml_env", "/bin/bash", "-c"]
+
+RUN pip install --no-cache-dir \
+    voila==0.5.8 \
+    ipywidgets==8.1.5 \
+    plotly==5.24.1 \
+    jupyter-server==2.14.2
+
+WORKDIR /app
+
+COPY notebooks/voila_dashboard.ipynb /app/dashboard.ipynb
+
+RUN jupyter nbextension enable --py widgetsnbextension --sys-prefix
+
+EXPOSE 8866
+
+CMD ["voila", "/app/dashboard.ipynb", "--port=8866", "--no-browser", "--Voila.ip=0.0.0.0", "--enable_nbextensions=True", "--theme=dark"]
