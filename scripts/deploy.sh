@@ -16,50 +16,67 @@ echo "EKS Cluster: $EKS_CLUSTER_NAME"
 echo "Image Tag: $IMAGE_TAG"
 echo "=========================================="
 
-echo -e "\n[1/6] Updating kubeconfig..."
+echo -e "\n[1/7] Updating kubeconfig..."
 aws eks update-kubeconfig \
     --name ${EKS_CLUSTER_NAME} \
     --region ${AWS_REGION}
 
-echo -e "\n[2/6] Creating namespaces..."
+echo -e "\n[2/7] Creating namespaces..."
 kubectl create namespace ml-inference --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace ml-jobs --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace ml-dev --dry-run=client -o yaml | kubectl apply -f -
 
-echo -e "\n[3/6] Applying PVCs..."
+echo -e "\n[3/7] Applying PVCs..."
 export AWS_ACCOUNT_ID AWS_REGION
 envsubst < k8s/pvc.yaml | kubectl apply -f -
 
-echo -e "\n[4/6] Deploying inference service..."
+echo -e "\n[4/7] Deploying inference service..."
 export AWS_ACCOUNT_ID AWS_REGION IMAGE_TAG
 envsubst < k8s/deployment.yaml | kubectl apply -f -
 
-echo -e "\n[5/6] Deploying Jupyter (optional)..."
-read -p "Deploy Jupyter notebook server? (y/n): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    envsubst < k8s/jupyter-deployment.yaml | kubectl apply -f -
-fi
+echo -e "\n[5/7] Deploying JupyterLab backend..."
+envsubst < k8s/jupyter-deployment.yaml | kubectl apply -f -
 
-echo -e "\n[6/6] Checking deployment status..."
+echo -e "\n[6/7] Deploying ALB Ingress..."
+envsubst < k8s/ingress.yaml | kubectl apply -f -
+
+echo -e "\n[7/7] Checking deployment status..."
 kubectl rollout status deployment/housing-crisis-inference -n ml-inference --timeout=300s
+kubectl rollout status deployment/housing-crisis-jupyter -n ml-inference --timeout=300s
 
 echo -e "\n=========================================="
 echo "Deployment Complete!"
 echo "=========================================="
 echo ""
+echo "Waiting for ALB to be provisioned..."
+sleep 10
+
+ALB_URL=$(kubectl get ingress housing-crisis-ingress -n ml-inference -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "pending")
+
+echo ""
+echo "Application URLs:"
+echo "  JupyterLab: http://${ALB_URL}/"
+echo "  API: http://${ALB_URL}/api/health"
+echo ""
+echo "Get Jupyter token:"
+echo "  kubectl logs -n ml-inference deployment/housing-crisis-jupyter | grep 'token='"
+echo ""
 echo "Check pods:"
 echo "  kubectl get pods -n ml-inference"
 echo ""
-echo "Check service:"
-echo "  kubectl get svc -n ml-inference"
+echo "Check ingress:"
+echo "  kubectl get ingress -n ml-inference"
 echo ""
-echo "View logs:"
+echo "View API logs:"
 echo "  kubectl logs -f deployment/housing-crisis-inference -n ml-inference"
 echo ""
-echo "Port forward for testing:"
-echo "  kubectl port-forward svc/housing-crisis-inference 8000:80 -n ml-inference"
+echo "View Jupyter logs:"
+echo "  kubectl logs -f deployment/housing-crisis-jupyter -n ml-inference"
 echo ""
-echo "Test API:"
-echo "  curl http://localhost:8000/health"
+echo "Port forward for local testing:"
+echo "  kubectl port-forward svc/housing-crisis-inference 8000:80 -n ml-inference"
+echo "  kubectl port-forward svc/housing-crisis-jupyter 8888:8888 -n ml-inference"
+echo ""
+echo "Note: ALB provisioning takes 2-3 minutes. If URL shows 'pending', wait and run:"
+echo "  kubectl get ingress -n ml-inference"
 echo "=========================================="

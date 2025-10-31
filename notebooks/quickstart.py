@@ -1,7 +1,8 @@
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).parent.parent / "src"))
+projectRoot = Path(__file__).parent.parent
+sys.path.append(str(projectRoot / "src"))
 
 import pandas as pd
 import numpy as np
@@ -17,7 +18,8 @@ print("\nNOTE: For full functionality, set your FRED API key:")
 print("fredApiKey = 'your_fred_api_key_here'")
 print("\nWithout API key, the system will use cached/demo data if available.\n")
 
-pipeline = TrainingPipeline(configPath="../config/config.yaml")
+configPath = str(projectRoot / "config" / "config.yaml")
+pipeline = TrainingPipeline(configPath=configPath)
 
 print("Initializing data collector...")
 pipeline.initializeDataCollector(fredApiKey=fredApiKey)
@@ -80,7 +82,7 @@ print("=" * 70)
 
 models = {"gradientBoosting": gbEnsemble}
 predictionPipeline = PredictionPipeline(
-    models=models, configPath="../config/config.yaml"
+    models=models, configPath=configPath
 )
 
 forecastResult = predictionPipeline.runPrediction(

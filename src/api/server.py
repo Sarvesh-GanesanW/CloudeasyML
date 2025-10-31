@@ -139,7 +139,7 @@ async def predict(request: PredictionRequest):
             predictionArray = np.array(predictions)
 
             crisisAnalysis = detector.detectCrisisLevel(predictionArray, historicalData)
-            recommendations = detector.generateRecommendations(criesisAnalysis)
+            recommendations = detector.generateRecommendations(crisisAnalysis)
 
             response.crisisLevel = crisisAnalysis["crisisLevel"]
             response.crisisScore = crisisAnalysis["crisisScore"]

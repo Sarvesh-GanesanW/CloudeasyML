@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: housing-crisis-ingress
+  namespace: ml-inference
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '10'
+    alb.ingress.kubernetes.io/success-codes: '200'
+  labels:
+    app: housing-crisis
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /jupyter
+        pathType: Prefix
+        backend:
+          service:
+            name: housing-crisis-jupyter
+            port:
+              number: 8888
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: housing-crisis-inference
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: housing-crisis-jupyter
+            port:
+              number: 8888

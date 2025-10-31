@@ -2,6 +2,7 @@ import xgboost as xgb
 from catboost import CatBoostRegressor
 import numpy as np
 import pandas as pd
+import torch
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from typing import Optional, Dict, Tuple
 
@@ -16,6 +17,9 @@ class XGBoostForecaster:
         colsampleBytree: float = 0.8,
         randomState: int = 42,
     ):
+        self.useGpu = torch.cuda.is_available()
+        treeMethod = "gpu_hist" if self.useGpu else "hist"
+
         self.params = {
             "n_estimators": nEstimators,
             "learning_rate": learningRate,
@@ -24,38 +28,45 @@ class XGBoostForecaster:
             "colsample_bytree": colsampleBytree,
             "random_state": randomState,
             "objective": "reg:squarederror",
-            "tree_method": "gpu_hist"
-            if xgb.get_config().get("use_gpu", False)
-            else "hist",
+            "tree_method": treeMethod,
         }
         self.model = None
         self.featureImportance = None
+        self.earlyStoppingRounds = 50
 
     def train(
         self,
         X: pd.DataFrame,
         y: pd.Series,
         evalSet: Optional[list] = None,
-        earlyStoppingRounds: int = 50,
         verbose: bool = True,
     ) -> Dict:
-        self.model = xgb.XGBRegressor(**self.params)
+        modelParams = self.params.copy()
 
-        self.model.fit(
-            X,
-            y,
-            eval_set=evalSet,
-            early_stopping_rounds=earlyStoppingRounds,
-            verbose=verbose,
-        )
+        if evalSet is not None:
+            modelParams["early_stopping_rounds"] = self.earlyStoppingRounds
+            modelParams["callbacks"] = [xgb.callback.EarlyStopping(rounds=self.earlyStoppingRounds)]
+
+        self.model = xgb.XGBRegressor(**modelParams)
+
+        fitParams = {"X": X, "y": y}
+        if evalSet is not None:
+            fitParams["eval_set"] = evalSet
+        if verbose:
+            fitParams["verbose"] = True
+
+        self.model.fit(**fitParams)
 
         self.featureImportance = pd.DataFrame(
             {"feature": X.columns, "importance": self.model.feature_importances_}
         ).sort_values("importance", ascending=False)
 
+        bestIteration = getattr(self.model, "best_iteration", self.params["n_estimators"])
+        bestScore = getattr(self.model, "best_score", None)
+
         return {
-            "bestIteration": self.model.best_iteration,
-            "bestScore": self.model.best_score,
+            "bestIteration": bestIteration,
+            "bestScore": bestScore,
         }
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
@@ -91,8 +102,12 @@ class CatBoostForecaster:
         depth: int = 7,
         l2LeafReg: float = 3.0,
         randomState: int = 42,
-        taskType: str = "GPU",
+        taskType: Optional[str] = None,
     ):
+        self.useGpu = torch.cuda.is_available()
+        if taskType is None:
+            taskType = "GPU" if self.useGpu else "CPU"
+
         self.params = {
             "iterations": iterations,
             "learning_rate": learningRate,
@@ -105,13 +120,13 @@ class CatBoostForecaster:
         }
         self.model = None
         self.featureImportance = None
+        self.earlyStoppingRounds = 50
 
     def train(
         self,
         X: pd.DataFrame,
         y: pd.Series,
         evalSet: Optional[Tuple] = None,
-        earlyStoppingRounds: int = 50,
         verbose: bool = True,
     ) -> Dict:
         self.model = CatBoostRegressor(**self.params)
@@ -119,21 +134,25 @@ class CatBoostForecaster:
         if verbose:
             self.model.set_params(verbose=100)
 
-        self.model.fit(
-            X,
-            y,
-            eval_set=evalSet,
-            early_stopping_rounds=earlyStoppingRounds,
-            use_best_model=True,
-        )
+        fitParams = {"X": X, "y": y}
+
+        if evalSet is not None:
+            fitParams["eval_set"] = evalSet
+            fitParams["early_stopping_rounds"] = self.earlyStoppingRounds
+            fitParams["use_best_model"] = True
+
+        self.model.fit(**fitParams)
 
         self.featureImportance = pd.DataFrame(
             {"feature": X.columns, "importance": self.model.feature_importances_}
         ).sort_values("importance", ascending=False)
 
+        bestIteration = getattr(self.model, "best_iteration_", self.params["iterations"])
+        bestScore = getattr(self.model, "best_score_", None)
+
         return {
-            "bestIteration": self.model.best_iteration_,
-            "bestScore": self.model.best_score_,
+            "bestIteration": bestIteration,
+            "bestScore": bestScore,
         }
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
@@ -176,6 +195,9 @@ class GradientBoostingEnsemble:
     ) -> Dict:
         evalSetXgb = [(valX, valY)] if valX is not None and valY is not None else None
         evalSetCat = (valX, valY) if valX is not None and valY is not None else None
+
+        device = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+        print(f"Training on: {device}")
 
         print("Training XGBoost...")
         xgbResults = self.xgbForecaster.train(X, y, evalSet=evalSetXgb)

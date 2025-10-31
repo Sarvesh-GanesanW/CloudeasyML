@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: housing-crisis-jupyter
-  namespace: ml-dev
+  namespace: ml-inference
   labels:
     app: housing-crisis
     component: jupyter
@@ -75,17 +75,17 @@ apiVersion: v1
 kind: Service
 metadata:
   name: housing-crisis-jupyter
-  namespace: ml-dev
+  namespace: ml-inference
   labels:
     app: housing-crisis
     component: jupyter
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: housing-crisis
     component: jupyter
   ports:
-  - name: jupyter
+  - name: http
     port: 8888
     targetPort: 8888
     protocol: TCP
