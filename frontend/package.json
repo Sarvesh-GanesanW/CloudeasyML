@@ -10,31 +10,37 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@jupyterlab/nbformat": "^4.2.8",
+    "@jupyterlab/services": "^7.2.5",
+    "@monaco-editor/react": "^4.6.0",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@tanstack/react-query": "^5.62.10",
+    "ansi-to-html": "^0.7.2",
+    "axios": "^1.7.9",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.469.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@monaco-editor/react": "^4.6.0",
-    "@tanstack/react-query": "^5.62.10",
-    "axios": "^1.7.9",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.6.0",
-    "lucide-react": "^0.469.0",
     "recharts": "^2.15.1",
     "sonner": "^1.7.2",
-    "zustand": "^5.0.3",
+    "tailwind-merge": "^2.6.0",
+    "uuid": "^11.0.5",
+    "ws": "^8.18.0",
     "zod": "^3.24.1",
-    "ws": "^8.18.0"
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
+    "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.13",
-    "typescript": "^5.7.2",
-    "tailwindcss": "^3.4.17",
-    "postcss": "^8.4.49",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.18.0",
-    "eslint-config-next": "^15.1.0"
+    "eslint-config-next": "^15.1.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2"
   }
 }
