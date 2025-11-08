@@ -1,9 +1,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
 *.so
-
 .Python
 build/
 develop-eggs/
@@ -20,21 +18,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-
-data/raw/*
-data/processed/*
-data/cache/*
-!data/.gitkeep
-
-models/saved/*
-!models/.gitkeep
-
-*.log
+MANIFEST
 
 .env
 .venv
@@ -44,31 +28,42 @@ ENV/
 env.bak/
 venv.bak/
 
-.ipynb_checkpoints
-
-*.pkl
-*.h5
-*.pth
-*.pt
-*.ckpt
+*.log
+*.pot
+*.mo
+.cache
+.coverage
+.pytest_cache/
+htmlcov/
 
 .DS_Store
+.AppleDouble
+.LSOverride
 Thumbs.db
 
-.vscode/
-.idea/
 *.swp
 *.swo
 *~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
 
-# Frontend artifacts
+data/db/*.json
+data/raw/
+data/processed/
+data/cache/
+models/
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.pth
+
+catboost_info/
+mlruns/
+
 node_modules/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
-frontend/.turbo/
-frontend/.eslintcache
-frontend/npm-debug.log*
-frontend/yarn-error.log*
-frontend/pnpm-debug.log*
-frontend/.env.local

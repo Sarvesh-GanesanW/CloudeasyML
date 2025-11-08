@@ -1,273 +1,299 @@
-# Housing Crisis Prediction Ensemble
+# CloudEasyML
 
-Multi-modal ML system for real-time housing market crisis prediction and policy recommendation.
+Open-source SaaS platform for plug-and-play ML model deployment. Deploy any ML model with authentication, billing, monitoring, and multi-cloud support out of the box.
 
 ## Features
 
-- **Multi-Model Ensemble**: XGBoost, CatBoost, TimesFM, Chronos, STGNN, AutoGluon
-- **GPU Auto-Detection**: Works on CPU or GPU without configuration changes
-- **Crisis Detection**: Real-time risk scoring and policy recommendations
-- **Interactive Jupyter Interface**: Full data science workflow with code visibility
-- **FastAPI Backend**: RESTful API for predictions
-- **Production Ready**: Docker + EKS + ALB deployment
+- **Plugin Architecture**: Drop in any ML model with a simple interface
+- **Multi-Tenant**: Built-in user management and API key authentication
+- **Usage Tracking**: Automatic billing and cost tracking per request
+- **Auto-Scaling**: Deploy to AWS, GCP, or Azure with one command
+- **GPU Support**: Automatic GPU/CPU detection and optimization
+- **REST API**: Production-ready FastAPI backend
+- **Admin Dashboard**: Beautiful web UI for model management
+- **Example Models**: Housing Crisis prediction included as reference
 
-## Quick Start (5 minutes)
+## Quick Start
 
 ```bash
-# 1. Activate conda environment
-conda activate hcpe
+git clone https://github.com/yourusername/CloudEasyML.git
+cd CloudEasyML
 
-# 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Run demo with synthetic data
-./run_quickstart.sh
+python3 server.py
 ```
 
-**What you get:**
-- Synthetic 15-year housing/economic dataset
-- 77 engineered features from 7 base indicators
-- XGBoost + CatBoost ensemble trained
-- Crisis detection analysis
+Visit `http://localhost:8000/docs` for interactive API documentation.
+
+## Architecture
+
+```
+CloudEasyML/
+├── core/                    # Platform core
+│   ├── auth/               # API key management
+│   ├── billing/            # Usage tracking & pricing
+│   ├── database/           # Multi-tenant data layer
+│   ├── modelRegistry/      # Plugin system
+│   └── api/                # REST API server
+├── plugins/                # Model plugins
+│   └── housingCrisis/      # Example: Housing market prediction
+├── admin/                  # Web dashboard
+└── deploy/                 # Cloud deployment configs
+```
+
+## Creating a Plugin
+
+Create a new model plugin in 3 steps:
+
+### 1. Create plugin directory
+
+```bash
+mkdir -p plugins/myModel
+touch plugins/myModel/__init__.py
+touch plugins/myModel/model.py
+```
+
+### 2. Implement BaseModel interface
+
+```python
+from core.modelRegistry.baseModel import BaseModel, ModelMetadata, PredictionInput, PredictionOutput
+
+class MyModel(BaseModel):
+    def getMetadata(self) -> ModelMetadata:
+        return ModelMetadata(
+            name="myModel",
+            version="1.0.0",
+            description="My awesome model",
+            author="Your Name",
+            tags=["classification", "nlp"],
+            gpuRequired=False,
+            minMemoryGb=4
+        )
+
+    def load(self) -> None:
+        self.isLoaded = True
+
+    def predict(self, input: PredictionInput) -> PredictionOutput:
+        import time
+        startTime = time.time()
+
+        predictions = []
+
+        processingTime = (time.time() - startTime) * 1000
+
+        return PredictionOutput(
+            predictions=predictions,
+            metadata={},
+            processingTimeMs=processingTime
+        )
+
+    def train(self, trainingData, config) -> dict:
+        return {"status": "trained"}
+```
+
+### 3. Deploy your model
+
+```bash
+python3 server.py
+```
+
+Your model is now available at `http://localhost:8000/models`
+
+## API Usage
+
+### 1. Create API Key
+
+```bash
+curl -X POST "http://localhost:8000/api-keys?userId=user123" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Production Key", "rateLimit": 1000}'
+```
+
+Response:
+```json
+{
+  "apiKey": "sk_abc123.xyz789",
+  "warning": "Save this key securely. It won't be shown again."
+}
+```
+
+### 2. Create Deployment
+
+```bash
+curl -X POST http://localhost:8000/deployments \
+  -H "Authorization: Bearer sk_abc123.xyz789" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "modelName": "housingCrisis",
+    "modelVersion": "1.0.0",
+    "config": {
+      "xgboost": {"nEstimators": 1000},
+      "catboost": {"iterations": 1000}
+    }
+  }'
+```
+
+### 3. Make Predictions
+
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "Authorization: Bearer sk_abc123.xyz789" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "deploymentId": "deployment-uuid",
+    "data": [{"feature1": 100, "feature2": 200}],
+    "options": {"crisisDetection": true}
+  }'
+```
+
+### 4. Check Usage & Billing
+
+```bash
+curl http://localhost:8000/usage \
+  -H "Authorization: Bearer sk_abc123.xyz789"
+```
+
+Response:
+```json
+{
+  "userId": "user123",
+  "totalCost": 1.45,
+  "totalRequests": 1250,
+  "byModel": {
+    "housingCrisis": {
+      "requests": 1250,
+      "cost": 1.45,
+      "processingTimeMs": 56789
+    }
+  }
+}
+```
+
+## Example Plugin: Housing Crisis Prediction
+
+The platform includes a complete example: multi-model ensemble for housing market crisis prediction.
+
+### Features
+- XGBoost + CatBoost ensemble
+- Crisis level detection (LOW/MEDIUM/HIGH)
 - Policy recommendations
+- Automatic GPU acceleration
 
-## Local Development
-
-### Prerequisites
-- Python 3.10+
-- Conda (recommended)
-- CUDA 11.8+ (optional, for GPU acceleration)
-
-### Setup
+### Usage
 
 ```bash
-# Create and activate environment
-conda create -n hcpe python=3.12
-conda activate hcpe
-
-# Install core dependencies
-pip install -r requirements.txt
-
-# Optional: Install foundation models
-pip install git+https://github.com/google-research/timesfm.git
-pip install git+https://github.com/amazon-science/chronos-forecasting.git
+curl -X POST http://localhost:8000/predict \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -d '{
+    "deploymentId": "your-deployment",
+    "data": [{
+      "GDP": 25000,
+      "UNRATE": 5.5,
+      "FEDFUNDS": 4.5
+    }],
+    "options": {"crisisDetection": true}
+  }'
 ```
 
-### Run Jupyter Development Environment
+See `plugins/housingCrisis/README.md` for full documentation.
 
-```bash
-# Terminal 1: Start API server
-python src/api/server.py
+## Cloud Deployment
 
-# Terminal 2: Start JupyterLab
-./run_jupyterlab.sh
-
-# Open browser to: http://localhost:8888
-# Open notebook: notebooks/housing_crisis_analysis.ipynb
-```
-
-**JupyterLab provides:**
-- Full code editor with syntax highlighting
-- Interactive notebook execution
-- Terminal access
-- File browser
-- Data exploration and visualization
-- Model training and evaluation
-
-## Production Deployment (AWS EKS + ALB)
-
-### Architecture
-
-```
-Internet
-   ↓
-Application Load Balancer (ALB)
-   ↓
-EKS Cluster (g5.xlarge GPU nodes)
-   ├── JupyterLab Backend (Port 8888)
-   ├── FastAPI Service (Port 8000)
-   └── Training Jobs (Batch)
-```
-
-### Prerequisites
-
-1. **AWS Account** with IAM permissions:
-   - `AmazonEC2ContainerRegistryFullAccess`
-   - `AmazonEKSClusterPolicy`
-   - `AmazonEKSWorkerNodePolicy`
-   - `ElasticLoadBalancingFullAccess`
-
-2. **AWS CLI** configured:
-```bash
-aws configure
-# AWS Access Key ID: YOUR_KEY
-# AWS Secret Access Key: YOUR_SECRET
-# Default region: us-east-1
-```
-
-3. **kubectl** installed:
-```bash
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-```
-
-4. **eksctl** installed:
-```bash
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-sudo mv /tmp/eksctl /usr/local/bin
-```
-
-### Step 1: Create EKS Cluster with GPU
-
-```bash
-eksctl create cluster \
-  --name housing-ml-cluster \
-  --region us-east-1 \
-  --nodegroup-name gpu-nodes \
-  --node-type g5.xlarge \
-  --nodes 2 \
-  --nodes-min 1 \
-  --nodes-max 4 \
-  --managed \
-  --install-nvidia-plugin
-
-# This takes ~15-20 minutes
-```
-
-### Step 2: Set Environment Variables
+### AWS (EKS)
 
 ```bash
 export AWS_REGION=us-east-1
 export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-export EKS_CLUSTER_NAME=housing-ml-cluster
-export IMAGE_TAG=latest
+
+./deploy/aws/deploy.sh
 ```
 
-### Step 3: Build and Push Docker Images
+### GCP (GKE)
 
 ```bash
-# Build images
-./scripts/build.sh
+export GCP_PROJECT=my-project
+export GCP_REGION=us-central1
 
-# This builds:
-# - housing-crisis-base: CUDA 12.1 + Conda + AWS CLI
-# - housing-crisis-ml: ML models + dependencies
-# - housing-crisis-jupyter: JupyterLab server
-
-# Push to ECR
-./scripts/push.sh
-
-# Images pushed to:
-# - ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/housing-crisis-base:latest
-# - ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/housing-crisis-ml:latest
-# - ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/housing-crisis-jupyter:latest
+./deploy/gcp/deploy.sh
 ```
 
-### Step 4: Deploy to EKS
+### Azure (AKS)
 
 ```bash
-# Deploy JupyterLab + FastAPI + ALB
-./scripts/deploy.sh
+export AZURE_RESOURCE_GROUP=cloudeasyml
+export AZURE_LOCATION=eastus
 
-# This creates:
-# - Namespace: ml-inference
-# - JupyterLab deployment (port 8888)
-# - FastAPI deployment (port 8000)
-# - ALB Ingress
-# - PersistentVolumeClaims for model storage
+./deploy/azure/deploy.sh
 ```
 
-### Step 5: Access Services
+## Development
+
+### Project Structure
+
+```
+core/
+├── auth/
+│   ├── apiKeyManager.py       # API key generation & validation
+│   └── authMiddleware.py      # FastAPI authentication
+├── billing/
+│   ├── usageTracker.py        # Request tracking
+│   └── pricingEngine.py       # Cost calculation
+├── database/
+│   ├── databaseManager.py     # Data persistence
+│   └── models.py              # Database schemas
+├── modelRegistry/
+│   ├── baseModel.py           # Plugin interface
+│   └── modelManager.py        # Plugin discovery & loading
+└── api/
+    └── apiServer.py           # FastAPI application
+```
+
+### Code Style
+
+- camelCase for variables and functions
+- PascalCase for classes
+- No comments in code
+- Type hints required
+- Pydantic for validation
+
+### Testing
 
 ```bash
-# Get ALB URL
-ALB_URL=$(kubectl get ingress -n ml-inference housing-crisis-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-
-echo "JupyterLab: http://${ALB_URL}/jupyter"
-echo "API: http://${ALB_URL}/api"
-echo "Health: http://${ALB_URL}/api/health"
-
-# Or use port-forward for testing
-kubectl port-forward -n ml-inference svc/housing-crisis-jupyter 8888:8888
-kubectl port-forward -n ml-inference svc/housing-crisis-api 8000:8000
+pytest tests/
 ```
 
-### Step 6: JupyterLab Authentication
+## Configuration
 
-```bash
-# Get Jupyter token
-kubectl logs -n ml-inference deployment/housing-crisis-jupyter | grep "token="
-
-# Look for line like:
-# http://127.0.0.1:8888/?token=abc123def456...
-
-# Access JupyterLab:
-# http://${ALB_URL}/jupyter?token=abc123def456...
-```
-
-## Kubernetes Deployment Details
-
-### JupyterLab Backend
+Edit `config/config.yaml`:
 
 ```yaml
-# k8s/jupyter-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: housing-crisis-jupyter
-spec:
-  replicas: 1
-  template:
-    spec:
-      containers:
-      - name: jupyter
-        image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/housing-crisis-jupyter:latest
-        ports:
-        - containerPort: 8888
-        resources:
-          requests:
-            nvidia.com/gpu: "1"
-            memory: "16Gi"
-            cpu: "4"
-          limits:
-            nvidia.com/gpu: "1"
-            memory: "32Gi"
-            cpu: "8"
+models:
+  xgboost:
+    nEstimators: 1000
+    learningRate: 0.05
+
+  catboost:
+    iterations: 1000
+    learningRate: 0.05
+
+pricing:
+  default:
+    perRequest: 0.001
+    perSecond: 0.0001
+    perGpuHour: 0.5
 ```
 
-### Application Load Balancer
+## Admin Dashboard
 
-```yaml
-# k8s/ingress.yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: housing-crisis-ingress
-  annotations:
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-spec:
-  rules:
-  - http:
-      paths:
-      - path: /jupyter
-        pathType: Prefix
-        backend:
-          service:
-            name: housing-crisis-jupyter
-            port:
-              number: 8888
-      - path: /api
-        pathType: Prefix
-        backend:
-          service:
-            name: housing-crisis-api
-            port:
-              number: 8000
-```
+Access the web dashboard at `http://localhost:8000/admin`:
 
-## API Usage
+- View all deployed models
+- Generate API keys
+- Monitor usage statistics
+- Check platform health
+
+## Monitoring
 
 ### Health Check
 
@@ -275,266 +301,108 @@ spec:
 curl http://localhost:8000/health
 ```
 
-Response:
-```json
-{
-  "status": "healthy",
-  "timestamp": "2025-10-31T12:00:00",
-  "modelsLoaded": true
-}
-```
-
-### Prediction Request
+### List Models
 
 ```bash
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "data": [{
-      "GDP": 25000,
-      "CPIAUCSL": 300,
-      "UNRATE": 5.5,
-      "FEDFUNDS": 4.5,
-      "MORTGAGE30US": 6.5,
-      "HOUST": 1400
-    }],
-    "horizon": 12,
-    "crisisDetection": true
-  }'
+curl http://localhost:8000/models
 ```
 
-Response:
-```json
-{
-  "predictions": [221.5, 223.1, 224.7, ...],
-  "horizon": 12,
-  "crisisLevel": "LOW",
-  "crisisScore": -0.257,
-  "recommendations": [
-    "Continue routine market monitoring",
-    "Refine predictive models with latest data",
-    "Conduct policy impact simulations"
-  ]
-}
-```
-
-## GPU Auto-Detection
-
-The system automatically detects GPU availability:
-
-```python
-# Local with GPU
-Training on: NVIDIA GeForce RTX 3060
-XGBoost: gpu_hist
-CatBoost: GPU
-
-# Docker without GPU
-Training on: CPU
-XGBoost: hist
-CatBoost: CPU
-
-# EKS with g5.xlarge
-Training on: NVIDIA A10G
-XGBoost: gpu_hist
-CatBoost: GPU
-```
-
-No configuration changes needed - same code works everywhere.
-
-## Cost Breakdown
-
-### Local Development: $0
-- Uses your local machine
-- No cloud charges
-
-### AWS Production (EKS + ALB)
-
-**Minimum Setup:**
-- EKS Control Plane: $73/month
-- 2x g5.xlarge nodes: $1,460/month
-- ALB: $23/month
-- EFS Storage: $30/month
-- **Total: ~$1,586/month**
-
-**With Spot Instances (60% savings):**
-- 2x g5.xlarge spot: $584/month
-- **Total: ~$710/month**
-
-**Recommended for Testing:**
-- 1x g5.xlarge on-demand: $730/month
-- Use Spot for training jobs
-- Scale down during off-hours
-- **Total: ~$400-600/month**
-
-## Monitoring and Operations
-
-### View Logs
+### View Deployments
 
 ```bash
-# JupyterLab logs
-kubectl logs -f -n ml-inference deployment/housing-crisis-jupyter
-
-# API logs
-kubectl logs -f -n ml-inference deployment/housing-crisis-api
-
-# All pods in namespace
-kubectl logs -f -n ml-inference --all-containers=true
+curl http://localhost:8000/deployments \
+  -H "Authorization: Bearer YOUR_KEY"
 ```
 
-### Scale Deployment
+## Contributing
 
-```bash
-# Scale JupyterLab (not recommended > 1)
-kubectl scale deployment housing-crisis-jupyter --replicas=1 -n ml-inference
+1. Fork the repository
+2. Create your plugin in `plugins/yourModel/`
+3. Add tests in `tests/plugins/test_yourModel.py`
+4. Submit a pull request
 
-# Scale API
-kubectl scale deployment housing-crisis-api --replicas=3 -n ml-inference
-```
+### Plugin Guidelines
 
-### Run Training Job
+- Inherit from `BaseModel`
+- Implement all required methods
+- Include `config.yaml` with defaults
+- Add `README.md` with usage examples
+- Support both GPU and CPU
+- Include metadata with cost estimates
 
-```bash
-# Submit batch training job
-./scripts/run-training-job.sh
+## License
 
-# Monitor job
-kubectl get jobs -n ml-jobs
-kubectl logs -f -n ml-jobs job/housing-crisis-training-$(date +%Y%m%d)
-```
-
-### Delete Everything
-
-```bash
-# Delete all resources
-kubectl delete namespace ml-inference ml-jobs
-
-# Delete cluster
-eksctl delete cluster --name housing-ml-cluster --region us-east-1
-```
-
-## Project Structure
-
-```
-HousingCrisisPredictionEnsemble/
-├── config/
-│   └── config.yaml                 # Model and pipeline configuration
-├── data/
-│   ├── raw/                        # Raw economic data
-│   ├── processed/                  # Processed datasets
-│   └── cache/                      # FRED API cache
-├── docker/
-│   ├── Dockerfile.base             # CUDA + Conda base image
-│   ├── Dockerfile                  # ML models image
-│   └── Dockerfile.jupyter          # JupyterLab image
-├── k8s/
-│   ├── jupyter-deployment.yaml     # JupyterLab deployment
-│   ├── api-deployment.yaml         # FastAPI deployment
-│   ├── ingress.yaml                # ALB ingress
-│   ├── training-job.yaml           # Batch training job
-│   └── pvc.yaml                    # Persistent storage
-├── notebooks/
-│   └── housing_crisis_analysis.ipynb  # Full analysis notebook
-├── scripts/
-│   ├── build.sh                    # Build Docker images
-│   ├── push.sh                     # Push to ECR
-│   └── deploy.sh                   # Deploy to EKS
-├── src/
-│   ├── api/
-│   │   └── server.py               # FastAPI backend
-│   ├── data/
-│   │   ├── dataCollector.py        # FRED + Zillow data
-│   │   └── featureEngineer.py      # Feature engineering
-│   ├── models/
-│   │   ├── timesfmForecaster.py    # Google TimesFM
-│   │   ├── chronosForecaster.py    # Amazon Chronos
-│   │   ├── stgnnModel.py           # Spatiotemporal GNN
-│   │   └── gradientBoostingModels.py  # XGBoost + CatBoost
-│   ├── ensemble/
-│   │   └── stackedEnsemble.py      # Meta-learning ensemble
-│   └── pipeline/
-│       ├── trainingPipeline.py     # Training orchestration
-│       └── predictionPipeline.py   # Inference + crisis detection
-├── requirements.txt                # Python dependencies
-├── run_quickstart.sh               # Quick demo script
-├── run_jupyterlab.sh              # Start JupyterLab locally
-└── README.md                       # This file
-
-See MODELS.md for detailed model descriptions.
-```
-
-## Troubleshooting
-
-### Issue: Docker build fails
-
-```bash
-# Check disk space
-df -h
-
-# Clean up Docker
-docker system prune -a
-
-# Rebuild
-./scripts/build.sh
-```
-
-### Issue: kubectl can't connect to cluster
-
-```bash
-# Update kubeconfig
-aws eks update-kubeconfig --name housing-ml-cluster --region us-east-1
-
-# Verify
-kubectl get nodes
-```
-
-### Issue: Pods stuck in Pending
-
-```bash
-# Check events
-kubectl describe pod <pod-name> -n ml-inference
-
-# Common issues:
-# - GPU nodes not ready (wait 5 minutes)
-# - Insufficient resources (scale cluster)
-# - Image pull errors (check ECR permissions)
-```
-
-### Issue: Can't access ALB
-
-```bash
-# Check ingress status
-kubectl get ingress -n ml-inference
-
-# If EXTERNAL-IP is pending, wait a few minutes
-# AWS takes time to provision ALB
-
-# Alternative: Use port-forward
-kubectl port-forward -n ml-inference svc/housing-crisis-jupyter 8888:8888
-```
-
-### Issue: JupyterLab asks for password
-
-```bash
-# Get token from logs
-kubectl logs -n ml-inference deployment/housing-crisis-jupyter | grep "token="
-
-# Use the full URL with token
-```
-
-## Next Steps
-
-1. **Get Real Data**: Sign up for [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html)
-2. **Train Models**: Run `./scripts/run-training-job.sh` with real data
-3. **Customize**: Modify notebooks and configurations for your use case
-4. **Scale**: Add more nodes or use HPA for autoscaling
-5. **Monitor**: Set up CloudWatch logging and metrics
+MIT License - see LICENSE file for details
 
 ## Support
 
-For model details, see `MODELS.md`.
+- Documentation: `/docs`
+- Issues: GitHub Issues
+- Discussions: GitHub Discussions
+- Examples: `/plugins`
 
-For issues or questions, check logs:
-```bash
-kubectl logs -f -n ml-inference deployment/housing-crisis-jupyter
-kubectl logs -f -n ml-inference deployment/housing-crisis-api
+## Roadmap
+
+- [ ] PostgreSQL/MongoDB database support
+- [ ] Kubernetes autoscaling
+- [ ] Model versioning
+- [ ] A/B testing framework
+- [ ] Prometheus metrics
+- [ ] Grafana dashboards
+- [ ] Stripe integration
+- [ ] Model marketplace
+- [ ] Webhook notifications
+- [ ] Batch inference
+
+## Examples
+
+See `plugins/` directory for complete examples:
+
+- `housingCrisis/` - Time series forecasting with ensemble models
+- More coming soon!
+
+## Cost Breakdown
+
+### Self-Hosted (Free)
+- Run on your infrastructure
+- No platform fees
+- Pay only for compute
+
+### AWS Deployment
+- EKS Control Plane: $73/month
+- 2x g5.xlarge GPU nodes: $1,460/month (or $584 with spot)
+- ALB: $23/month
+- Total: ~$600-1,600/month
+
+### Usage-Based Pricing
+Configure in `core/billing/pricingEngine.py`:
+
+```python
+pricingConfig = {
+    'default': {
+        'perRequest': 0.001,
+        'perSecond': 0.0001,
+        'perGpuHour': 0.5
+    }
+}
 ```
+
+## Security
+
+- API key authentication required
+- Rate limiting per key
+- Multi-tenant data isolation
+- No credentials in code
+- Environment-based configuration
+
+## Performance
+
+- Automatic GPU detection
+- Model caching
+- Async request handling
+- Connection pooling
+- Response compression
+
+---
+
+Made with ❤️ by the CloudEasyML team

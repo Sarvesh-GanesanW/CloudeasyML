@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudeasyml
+  namespace: ml-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cloudeasyml
+  template:
+    metadata:
+      labels:
+        app: cloudeasyml
+    spec:
+      containers:
+      - name: api
+        image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/cloudeasyml:latest
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            nvidia.com/gpu: "1"
+            memory: "8Gi"
+            cpu: "2"
+          limits:
+            nvidia.com/gpu: "1"
+            memory: "16Gi"
+            cpu: "4"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+        - name: models
+          mountPath: /app/models
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: cloudeasyml-data
+      - name: models
+        persistentVolumeClaim:
+          claimName: cloudeasyml-models

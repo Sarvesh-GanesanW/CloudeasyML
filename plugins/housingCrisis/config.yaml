@@ -1,0 +1,12 @@
+xgboost:
+  nEstimators: 1000
+  learningRate: 0.05
+  maxDepth: 7
+  subsample: 0.8
+  colsampleBytree: 0.8
+
+catboost:
+  iterations: 1000
+  learningRate: 0.05
+  depth: 7
+  l2LeafReg: 3
